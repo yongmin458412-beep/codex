@@ -195,28 +195,31 @@ fn append_text(accumulated: &mut String, text: &str) {
     accumulated.push_str(text);
 }
 
-fn with_tool_policy(system_prompt: Option<&str>, allowed_tools: Option<&[String]>) -> Option<String> {
-    let base_prompt = system_prompt.map(str::to_string);
+fn compose_prompt(
+    user_prompt: &str,
+    system_prompt: Option<&str>,
+    allowed_tools: Option<&[String]>,
+) -> String {
+    let mut sections: Vec<String> = Vec::new();
 
-    let Some(tools) = allowed_tools else {
-        return base_prompt;
-    };
-    if tools.is_empty() {
-        return base_prompt;
-    }
-
-    let policy = format!(
-        "\n\nTOOL POLICY: The user currently allows only these tools: {}. If a task requires any other tool, explain which tool is missing and do not proceed until it is re-enabled.",
-        tools.join(", ")
-    );
-
-    match base_prompt {
-        Some(mut prompt) => {
-            prompt.push_str(&policy);
-            Some(prompt)
+    if let Some(sp) = system_prompt {
+        let trimmed = sp.trim();
+        if !trimmed.is_empty() {
+            sections.push(format!("SYSTEM INSTRUCTIONS:\n{}", trimmed));
         }
-        None => Some(policy.trim().to_string()),
     }
+
+    if let Some(tools) = allowed_tools {
+        if !tools.is_empty() {
+            sections.push(format!(
+                "TOOL POLICY: The user currently allows only these tools: {}. If a task requires any other tool, explain which tool is missing and do not proceed until it is re-enabled.",
+                tools.join(", ")
+            ));
+        }
+    }
+
+    sections.push(format!("USER REQUEST:\n{}", user_prompt));
+    sections.join("\n\n")
 }
 
 fn is_git_repo(working_dir: &str) -> bool {
@@ -239,8 +242,6 @@ fn build_exec_args(
     include_json: bool,
     sandbox: Option<&str>,
     full_auto: bool,
-    system_prompt: Option<&str>,
-    allowed_tools: Option<&[String]>,
 ) -> Vec<String> {
     let mut args = vec!["exec".to_string()];
 
@@ -265,13 +266,6 @@ fn build_exec_args(
     // Auto-add skip flag when the working directory is not a git repo.
     if !is_git_repo(working_dir) {
         args.push("--skip-git-repo-check".to_string());
-    }
-
-    if let Some(prompt_text) = with_tool_policy(system_prompt, allowed_tools) {
-        if !prompt_text.trim().is_empty() {
-            args.push("--append-system-prompt".to_string());
-            args.push(prompt_text);
-        }
     }
 
     args.push(prompt.to_string());
@@ -667,15 +661,14 @@ pub fn execute_command(
         }
     };
 
+    let composed_prompt = compose_prompt(prompt, Some(default_system_prompt()), allowed_tools);
     let args = build_exec_args(
-        prompt,
+        &composed_prompt,
         session_id,
         working_dir,
         true,
         Some("read-only"),
         false,
-        Some(default_system_prompt()),
-        allowed_tools,
     );
 
     let output = match Command::new(codex_bin)
@@ -796,15 +789,14 @@ pub fn execute_command_streaming(
         Some(custom) => Some(custom),
     };
 
+    let composed_prompt = compose_prompt(prompt, effective_system_prompt, allowed_tools);
     let args = build_exec_args(
-        prompt,
+        &composed_prompt,
         session_id,
         working_dir,
         true,
         None,
         true,
-        effective_system_prompt,
-        allowed_tools,
     );
 
     debug_log("--- Spawning codex process ---");
