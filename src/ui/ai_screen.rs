@@ -601,7 +601,7 @@ impl AIScreenState {
         } else if !codex_available {
             state.history.push(HistoryItem {
                 item_type: HistoryType::Error,
-                content: "Codex CLI not found. Install with 'npm install -g @openai/codex', then run 'codex login --api-key \"$OPENAI_API_KEY\"'.".to_string(),
+                content: "Codex CLI not found. Install with 'npm install -g @openai/codex', then run 'printenv OPENAI_API_KEY | codex login --with-api-key'.".to_string(),
             });
         }
 

@@ -67,7 +67,7 @@ npm install -g @openai/codex
 Authenticate with your API key (do not commit keys into this repo):
 
 ```bash
-codex login --api-key "$OPENAI_API_KEY"
+printenv OPENAI_API_KEY | codex login --with-api-key
 ```
 
 Or run non-interactively with an environment variable:

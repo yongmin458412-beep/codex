@@ -140,7 +140,7 @@ fn handle_prompt(prompt: &str) {
     if !codex::is_codex_available() {
         eprintln!("Error: Codex CLI is not available.");
         eprintln!("Install Codex CLI: npm install -g @openai/codex");
-        eprintln!("Then authenticate: codex login --api-key \"$OPENAI_API_KEY\"");
+        eprintln!("Then authenticate: printenv OPENAI_API_KEY | codex login --with-api-key");
         return;
     }
 
